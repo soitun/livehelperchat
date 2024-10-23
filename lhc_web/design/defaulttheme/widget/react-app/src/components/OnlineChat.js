@@ -361,11 +361,16 @@ class OnlineChat extends Component {
                     }
 
                     this.intervalFunction = () => {
-                        if (this.nextUntil(msg,'.message-admin', false, true).length > 0) {
+                        let adminMessages = this.nextUntil(msg,'.message-admin', false, true);
+                        if (adminMessages.length > 0) {
                             msg.parentNode.removeChild(msg);
-                            this.scrollBottom(false, false);
+
                             this.intervalFunction = null;
                             clearInterval(this.intervalPending);
+
+                            adminMessages[0].scrollIntoView();
+                            //this.scrollBottom(false, false); // We now scroll to very first admin message after it's appearance
+
                         } else {
                             if (!this.hasClass(msg,'meta-hider'))
                             {
@@ -433,14 +438,20 @@ class OnlineChat extends Component {
             return;
         }
 
+        let scrollViewScrolled = false;
+
         this.nextUntil(msg,'.meta-hider').forEach((item) => {
             this.removeClass(item,'hide');
+            if (scrollViewScrolled == false) {
+                item.scrollIntoView();
+                scrollViewScrolled = true;
+            }
         });
 
         msg.parentNode.removeChild(msg);
 
         this.updateMetaAutoHide();
-        this.scrollBottom();
+        //this.scrollBottom(); // We now scroll to first unhidden element
 
         if (this.delayQueue.length > 0) {
             var data = this.delayQueue.shift();
@@ -732,7 +743,9 @@ class OnlineChat extends Component {
 
     enterKeyDown(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
-            this.sendMessage();
+            if (!this.props.chatwidget.getIn(['chatLiveData','lock_send'])) {
+                this.sendMessage();
+            }
             e.preventDefault();
         }
     }
@@ -1015,7 +1028,7 @@ class OnlineChat extends Component {
 
                     {this.props.chatwidget.hasIn(['chatStatusData','result']) && !this.props.chatwidget.hasIn(['chat_ui','hide_status']) && this.props.chatwidget.getIn(['chatStatusData','result']) && <div id="chat-status-container" className={"p-2 border-bottom live-status-"+this.props.chatwidget.getIn(['chatLiveData','status'])}><ChatStatus updateStatus={this.updateStatus} vtm={this.props.chatwidget.hasIn(['chat_ui','switch_to_human']) && this.props.chatwidget.getIn(['chatLiveData','status']) == STATUS_BOT_CHAT ? this.props.chatwidget.getIn(['chatLiveData','vtm']) : 0} status={this.props.chatwidget.getIn(['chatStatusData','result'])} /></div>}
 
-                    <div className={msg_expand + (this.props.chatwidget.hasIn(['chat_ui','after_chat_status']) && this.props.chatwidget.getIn(['chat_ui','after_chat_status']) != '' ? ' has-after-chat-status' : '')} onClick={(e) => {this.setState({'reactToMsgId' : 0})}} id="messagesBlock" onScroll={this.onScrollMessages}>
+                    <div className={msg_expand + (this.props.chatwidget.hasIn(['chat_ui','after_chat_status']) && this.props.chatwidget.getIn(['chat_ui','after_chat_status']) != '' ? ' has-after-chat-status' : '')} onClick={(e) => {this.setState({'reactToMsgId' : 0})}} id="messagesBlock" onScrollCapture={this.onScrollMessages}>
 
                         {this.props.chatwidget.hasIn(['chat_ui','after_chat_status']) && this.props.chatwidget.getIn(['chat_ui','after_chat_status']) != '' && <Suspense fallback=""><CustomHTML setStateParent={(state) => this.setState(state)} has_new={this.state.hasNew && this.state.otm > 0} attr="after_chat_status" /></Suspense>}
 
@@ -1075,15 +1088,15 @@ class OnlineChat extends Component {
 
                                     {this.state.voiceMode === true && <Suspense fallback="..."><VoiceMessage onCompletion={this.updateMessages} progress={this.setStatusText} base_url={this.props.chatwidget.get('base_url')} chat_id={this.props.chatwidget.getIn(['chatData','id'])} hash={this.props.chatwidget.getIn(['chatData','hash'])} maxSeconds={this.props.chatwidget.getIn(['chat_ui','voice_message'])} cancel={this.cancelVoiceRecording} /></Suspense>}
 
-                                    {(!this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) || this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size == 0) && this.props.chatwidget.hasIn(['chat_ui','voice_message']) && typeof window.Audio !== "undefined" && this.state.value.length == 0 && this.state.voiceMode === false && <a tabIndex="0" onKeyPress={(e) => { e.key === "Enter" ? this.startVoiceRecording() : '' }} onClick={this.startVoiceRecording} title={t('button.record_voice')}>
+                                    {(!this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) || this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size == 0) && !this.props.chatwidget.getIn(['chatLiveData','lock_send']) && this.props.chatwidget.hasIn(['chat_ui','voice_message']) && typeof window.Audio !== "undefined" && this.state.value.length == 0 && this.state.voiceMode === false && <a tabIndex="0" onKeyPress={(e) => { e.key === "Enter" ? this.startVoiceRecording() : '' }} onClick={this.startVoiceRecording} title={t('button.record_voice')}>
                                        <i className="record-icon material-icons text-muted settings me-0">&#xf10b;</i>
                                     </a>}
 
-                                    {(!this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) || this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size == 0) && (!this.props.chatwidget.hasIn(['chat_ui','voice_message']) || !(typeof window.Audio !== "undefined") || (this.state.value.length > 0 && this.state.voiceMode === false)) && <a tabIndex="0" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); this.sendMessage();}}} onClick={this.sendMessage} title={t('button.send_msg')}>
+                                    {(!this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) || this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size == 0) && !this.props.chatwidget.getIn(['chatLiveData','lock_send']) && (!this.props.chatwidget.hasIn(['chat_ui','voice_message']) || !(typeof window.Audio !== "undefined") || (this.state.value.length > 0 && this.state.voiceMode === false)) && <a tabIndex="0" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); this.sendMessage();}}} onClick={this.sendMessage} title={t('button.send_msg')}>
                                        <i className={"send-icon material-icons settings me-0" + (this.state.value.length == 0 ? ' text-muted-light' : ' text-muted')}>&#xf107;</i>
                                     </a>}
 
-                                    {this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) && this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size > 0 && <i className="in-progress-icon material-icons text-muted settings me-0">&#xf113;</i>}
+                                    {(this.props.chatwidget.getIn(['chatLiveData','lock_send']) || (this.props.chatwidget.hasIn(['chatLiveData','msg_to_store']) && this.props.chatwidget.getIn(['chatLiveData','msg_to_store']).size > 0)) && <i className="in-progress-icon material-icons text-muted settings me-0">&#xf113;</i>}
 
                                 </div>
 
